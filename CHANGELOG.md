@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.0.1] - 2026-11-25
+
+### Fixed
+- Prevented `ADDON_ACTION_BLOCKED` errors when Warlock speech triggers outdoors while solo or during chat messaging lockdown; solo outdoor announcements now display locally in chat, while instance, party, raid, and instance-group channels continue broadcasting normally.
+- Added `"INSTANCE_CHAT"` channel support for queued dungeon/raid/battleground groups and guarded Soulstone whispers on group membership.
+
 ## [v1.0.0] - 2026-11-24
 
 ### Added

@@ -113,7 +113,9 @@ local function GetSpeechLine(customKey, defaultKey, defaultList)
 end
 
 local function GetGroupChannel()
-    if IsInRaid() then
+    if LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+        return "INSTANCE_CHAT"
+    elseif IsInRaid() then
         return "RAID"
     elseif IsInGroup() then
         return "PARTY"
@@ -121,20 +123,30 @@ local function GetGroupChannel()
     return "SAY"
 end
 
+local function CanSendChat(channel)
+    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+        return false
+    end
+    if channel == "SAY" then
+        local inInstance, instanceType = IsInInstance()
+        return (inInstance and instanceType ~= "none") and true or false
+    end
+    if channel == "WHISPER" then
+        return IsInGroup() or IsInRaid()
+    end
+    return true
+end
+
 local function SayLine(text)
     if not text or text == "" then
         return
     end
     local channel = GetGroupChannel()
-    if channel == "SAY" then
-        local inInstance = IsInInstance()
-        if not inInstance then
-            -- In newer clients SendChatMessage("SAY") without a hardware event only works inside instances
-            pcall(FLM.SendChatMessage, text, "SAY")
-            return
-        end
+    if CanSendChat(channel) then
+        pcall(FLM.SendChatMessage, text, channel)
+    else
+        FLM:Print(text)
     end
-    pcall(FLM.SendChatMessage, text, channel)
 end
 
 local function ResolveTargetName(castGUID, explicitTarget)
@@ -191,7 +203,7 @@ function FLM:InitSpeech()
             if line then
                 SayLine((line:gsub("<target>", who)))
             end
-            if FLM.db.speech.whisperSoulstone and who ~= "a party member" and who ~= UnitName("player") then
+            if FLM.db.speech.whisperSoulstone and who ~= "a party member" and who ~= UnitName("player") and CanSendChat("WHISPER") then
                 local whisperMsg = GetCustomLine("soulstoneWhisper") or "Soulstone placed on you!"
                 pcall(FLM.SendChatMessage, whisperMsg, "WHISPER", nil, who)
             end
