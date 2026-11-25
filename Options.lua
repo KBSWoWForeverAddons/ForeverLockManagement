@@ -142,7 +142,7 @@ end
 
 local function BuildOptionsWindow()
     optionsFrame = CreateFrame("Frame", "FLM_OptionsFrame", UIParent, "BackdropTemplate")
-    optionsFrame:SetSize(610, 545)
+    optionsFrame:SetSize(610, 560)
     optionsFrame:SetPoint("CENTER")
     optionsFrame:SetFrameStrata("DIALOG")
     optionsFrame:SetClampedToScreen(true)
@@ -171,21 +171,30 @@ local function BuildOptionsWindow()
 
     -- ================= LEFT COLUMN =================
     local lx = 18
-    CreateSectionHeader(optionsFrame, "Square Hub Layout", lx, -56)
+    CreateSectionHeader(optionsFrame, "Hub Layout", lx, -56)
 
     CreateCheckbox(optionsFrame, "Lock Hub Position (Shift+Drag to move)", lx, -78,
         function() return FLM.db.hub.locked end,
         function(v) FLM.db.hub.locked = v end)
 
-    CreateCheckbox(optionsFrame, "Show Spellstone in Weapon Stones Drawer", lx, -102,
+    CreateCheckbox(optionsFrame, "Auto-close drawers after selection", lx, -102,
+        function() return FLM.db.hub.autoCloseDrawers end,
+        function(v)
+            FLM.db.hub.autoCloseDrawers = v
+            if FLM.SyncDrawerSettings then
+                FLM:SyncDrawerSettings()
+            end
+        end)
+
+    CreateCheckbox(optionsFrame, "Show Spellstone in Weapon Stones Drawer", lx, -126,
         function() return FLM.db.hub.showSpellstone end,
         function(v) FLM.db.hub.showSpellstone = v; FLM:UpdateHub() end)
 
-    CreateCheckbox(optionsFrame, "Show Firestone in Weapon Stones Drawer", lx, -126,
+    CreateCheckbox(optionsFrame, "Show Firestone in Weapon Stones Drawer", lx, -150,
         function() return FLM.db.hub.showFirestone end,
         function(v) FLM.db.hub.showFirestone = v; FLM:UpdateHub() end)
 
-    CreateCleanSlider(optionsFrame, "Hub Scale", lx, -156, 0.70, 1.50, 0.05, "%.2f",
+    CreateCleanSlider(optionsFrame, "Hub Scale", lx, -180, 0.70, 1.50, 0.05, "%.2f",
         function() return FLM.db.hub.scale end,
         function(v)
             FLM.db.hub.scale = v
@@ -194,21 +203,21 @@ local function BuildOptionsWindow()
             end
         end)
 
-    CreateActionButton(optionsFrame, "Reset Hub & Warning Positions", lx, -198, 220, function()
+    CreateActionButton(optionsFrame, "Reset Hub & Warning Positions", lx, -222, 220, function()
         FLM:ResetPositions()
     end)
 
     -- Soul Shard Bag & Excess Management
-    CreateSectionHeader(optionsFrame, "Soul Shard Bag & Excess Control", lx, -236)
+    CreateSectionHeader(optionsFrame, "Soul Shard Bag & Excess Control", lx, -260)
 
     local bagPrompt = optionsFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    bagPrompt:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", lx, -258)
+    bagPrompt:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", lx, -282)
     bagPrompt:SetText("Assigned Soul Shard Bag (Bags 1-5):")
 
     for bagIndex = 0, 4 do
         local rowBtn = CreateFrame("Button", nil, optionsFrame, "BackdropTemplate")
         rowBtn:SetSize(266, 20)
-        rowBtn:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", lx, -276 - (bagIndex * 22))
+        rowBtn:SetPoint("TOPLEFT", optionsFrame, "TOPLEFT", lx, -300 - (bagIndex * 22))
         rowBtn:SetBackdrop(BACKDROP_WIN)
 
         local txt = rowBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -233,7 +242,7 @@ local function BuildOptionsWindow()
     end
     table.insert(refreshCallbacks, RefreshBagButtons)
 
-    CreateCheckbox(optionsFrame, "Auto-sort shards into assigned bag (out of combat)", lx, -392,
+    CreateCheckbox(optionsFrame, "Auto-sort shards into assigned bag (out of combat)", lx, -416,
         function() return FLM.db.shards.autoSort end,
         function(v)
             FLM.db.shards.autoSort = v
@@ -243,14 +252,14 @@ local function BuildOptionsWindow()
             FLM:UpdateShardDisplay()
         end)
 
-    CreateCheckbox(optionsFrame, "Cap shards to assigned bag capacity", lx, -416,
+    CreateCheckbox(optionsFrame, "Cap shards to assigned bag capacity", lx, -440,
         function() return FLM.db.shards.limitToBagCapacity end,
         function(v)
             FLM.db.shards.limitToBagCapacity = v
             FLM:UpdateShardDisplay()
         end)
 
-    CreateCleanSlider(optionsFrame, "Custom Max Shards", lx, -444, 1, 32, 1, "%d",
+    CreateCleanSlider(optionsFrame, "Custom Max Shards", lx, -468, 1, 32, 1, "%d",
         function() return FLM.db.shards.maxShards end,
         function(v)
             FLM.db.shards.maxShards = v
@@ -258,7 +267,7 @@ local function BuildOptionsWindow()
         end,
         function() return not FLM.db.shards.limitToBagCapacity end)
 
-    CreateCheckbox(optionsFrame, "Highlight Shard button when excess shards exist", lx, -482,
+    CreateCheckbox(optionsFrame, "Highlight Shard button when excess shards exist", lx, -506,
         function() return FLM.db.shards.warnExcess end,
         function(v)
             FLM.db.shards.warnExcess = v

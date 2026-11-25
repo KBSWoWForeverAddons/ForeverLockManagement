@@ -1,5 +1,14 @@
 # Changelog
 
+## [v1.1.0] - 2026-11-25
+
+### Added
+- Added **Auto-close drawers after selection** option under Hub Layout (enabled by default) so Demons, Curses, Buffs & Utility, and Weapon Stones drawers close automatically after clicking a spell or stay open when unchecked.
+
+### Fixed
+- Fixed secure post-click drawer closing (supporting both key-down and key-up `ActionButtonUseKeyDown` settings, including in combat).
+- Enabled real `/say` announcements outdoors when casting speech spells from Forever Lock Management hub and drawer buttons via hardware-click handling, while keeping local chat fallback for restricted non-hardware casts.
+
 ## [v1.0.1] - 2026-11-25
 
 ### Fixed

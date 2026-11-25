@@ -5,6 +5,7 @@ end
 
 local lastPicked = {}
 local pendingTargets = {}
+local pendingHardwareSay = nil
 
 local SPEECH_LINES = {
     summon = {
@@ -123,8 +124,12 @@ local function GetGroupChannel()
     return "SAY"
 end
 
+local function IsChatLocked()
+    return (C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()) and true or false
+end
+
 local function CanSendChat(channel)
-    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+    if IsChatLocked() then
         return false
     end
     if channel == "SAY" then
@@ -144,9 +149,31 @@ local function SayLine(text)
     local channel = GetGroupChannel()
     if CanSendChat(channel) then
         pcall(FLM.SendChatMessage, text, channel)
+    elseif channel == "SAY" and not IsChatLocked() then
+        local token = { text = text, time = GetTime() }
+        pendingHardwareSay = token
+        C_Timer.After(0, function()
+            if pendingHardwareSay == token then
+                pendingHardwareSay = nil
+                FLM:Print(token.text)
+            end
+        end)
     else
         FLM:Print(text)
     end
+end
+
+function FLM:FlushHardwareSpeech()
+    if not pendingHardwareSay then
+        return
+    end
+    local text = pendingHardwareSay.text
+    pendingHardwareSay = nil
+    if IsChatLocked() then
+        self:Print(text)
+        return
+    end
+    pcall(FLM.SendChatMessage, text, "SAY")
 end
 
 local function ResolveTargetName(castGUID, explicitTarget)

@@ -20,6 +20,7 @@ FLM.DEFAULTS = {
         y = -140,
         showFirestone = true,
         showSpellstone = true,
+        autoCloseDrawers = true,
     },
     shards = {
         bagIndex = 4, -- 0..4 in WoW container API (displayed as Bag 1..5)

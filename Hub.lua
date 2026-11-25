@@ -99,6 +99,11 @@ local function CreateSecureHubButton(name, parent, x, y, iconPath)
     btn:SetPoint("CENTER", parent, "CENTER", x, y)
     btn:RegisterForClicks("AnyUp", "AnyDown")
     StyleSquareButton(btn, iconPath)
+    btn:HookScript("PostClick", function()
+        if FLM.FlushHardwareSpeech then
+            FLM:FlushHardwareSpeech()
+        end
+    end)
     return btn
 end
 
@@ -117,6 +122,37 @@ local function CreateDrawerFrame(name, anchorBtn, anchorPoint, relPoint, offX, o
     ApplySquareBackdrop(drawer, COLORS.drawerBg, COLORS.borderHover)
     drawer:Hide()
     return drawer
+end
+
+local DRAWER_CHILD_PRECLICK = [[
+    local wantDown = control:GetAttribute("useKeyDown")
+    if control:GetAttribute("autoCloseDrawers") and ((wantDown and down) or (not wantDown and not down)) then
+        return nil, "close"
+    end
+]]
+
+local DRAWER_CHILD_POSTCLICK = [[
+    if message == "close" then
+        local count = control:GetAttribute("drawerCount") or 0
+        for i = 1, count do
+            local d = control:GetFrameRef("drawer" .. i)
+            if d and d:IsShown() then
+                d:Hide()
+            end
+        end
+    end
+]]
+
+local function SyncDrawerAttributes()
+    if not secureHeader or not FLM.db then
+        return
+    end
+    if InCombatLockdown() then
+        pendingSecureUpdate = true
+        return
+    end
+    secureHeader:SetAttribute("autoCloseDrawers", FLM.db.hub.autoCloseDrawers and true or false)
+    secureHeader:SetAttribute("useKeyDown", (GetCVarBool and GetCVarBool("ActionButtonUseKeyDown")) and true or false)
 end
 
 local function WireDrawerToggle(toggleBtn, drawerIndex)
@@ -183,16 +219,13 @@ local function BuildSpellDrawerButtons(drawerKey, spellKeys, cols, growDirX, gro
             btn:RegisterForClicks("AnyUp", "AnyDown")
             StyleSquareButton(btn, entry.info.icon)
             if secureHeader then
-                secureHeader:WrapScript(btn, "OnClick", "", [[
-                    local count = control:GetAttribute("drawerCount") or 0
-                    for i = 1, count do
-                        local d = control:GetFrameRef("drawer" .. i)
-                        if d and d:IsShown() then
-                            d:Hide()
-                        end
-                    end
-                ]])
+                secureHeader:WrapScript(btn, "OnClick", DRAWER_CHILD_PRECLICK, DRAWER_CHILD_POSTCLICK)
             end
+            btn:HookScript("PostClick", function()
+                if FLM.FlushHardwareSpeech then
+                    FLM:FlushHardwareSpeech()
+                end
+            end)
             btn.ShowCustomTooltip = function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                 if self.spellID then
@@ -363,15 +396,7 @@ local function UpdateStoneButtons()
                 btn:RegisterForClicks("AnyUp", "AnyDown")
                 StyleSquareButton(btn, sdef.fallbackIcon)
                 if secureHeader then
-                    secureHeader:WrapScript(btn, "OnClick", "", [[
-                        local count = control:GetAttribute("drawerCount") or 0
-                        for i = 1, count do
-                            local d = control:GetFrameRef("drawer" .. i)
-                            if d and d:IsShown() then
-                                d:Hide()
-                            end
-                        end
-                    ]])
+                    secureHeader:WrapScript(btn, "OnClick", DRAWER_CHILD_PRECLICK, DRAWER_CHILD_POSTCLICK)
                 end
                 btn.ShowCustomTooltip = function(self)
                     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -520,10 +545,15 @@ function FLM:UpdateShardDisplay()
     end
 end
 
+function FLM:SyncDrawerSettings()
+    SyncDrawerAttributes()
+end
+
 function FLM:UpdateHub()
     if not hubFrame or not self.db then
         return
     end
+    SyncDrawerAttributes()
     UpdateStoneButtons()
     UpdateCooldowns()
     self:UpdateShardDisplay()
@@ -809,10 +839,16 @@ function FLM:InitHub()
     WireDrawerToggle(buttons.stones, 4)
 
     self:ApplyHubPosition()
+    SyncDrawerAttributes()
     self:UpdateHub()
 
     self:RegisterEvent("BAG_UPDATE_COOLDOWN", UpdateCooldowns)
     self:RegisterEvent("SPELL_UPDATE_COOLDOWN", UpdateCooldowns)
+    self:RegisterEvent("CVAR_UPDATE", function(_, cvar)
+        if cvar == "ActionButtonUseKeyDown" then
+            SyncDrawerAttributes()
+        end
+    end)
     self:RegisterEvent("PLAYER_REGEN_ENABLED", function()
         if pendingSecureUpdate then
             pendingSecureUpdate = false
