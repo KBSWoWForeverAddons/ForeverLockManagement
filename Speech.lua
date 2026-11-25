@@ -5,7 +5,7 @@ end
 
 local lastPicked = {}
 local pendingTargets = {}
-local pendingHardwareSay = nil
+local lastHubSpeech = {}
 
 local SPEECH_LINES = {
     summon = {
@@ -142,6 +142,94 @@ local function CanSendChat(channel)
     return true
 end
 
+local SPEECH_KEY_CATEGORY = {
+    summon        = "summon",
+    soulstone     = "soulstone",
+    ritualOfSouls = "ritualOfSouls",
+    mount         = "mount",
+    imp           = "demon",
+    voidwalker    = "demon",
+    succubus      = "demon",
+    felhunter     = "demon",
+    felguard      = "demon",
+    inferno       = "demon",
+    doomguard     = "demon",
+}
+
+local SPEECH_KEY_DEFAULTS = {
+    summon        = { "summon", SPEECH_LINES.summon },
+    soulstone     = { "soulstone", SPEECH_LINES.soulstone },
+    ritualOfSouls = { "ritualOfSouls", SPEECH_LINES.ritualOfSouls },
+    mount         = { "mount", SPEECH_LINES.mount },
+    imp           = { "demon_imp", SPEECH_LINES.demon.imp },
+    voidwalker    = { "demon_voidwalker", SPEECH_LINES.demon.voidwalker },
+    succubus      = { "demon_succubus", SPEECH_LINES.demon.succubus },
+    felhunter     = { "demon_felhunter", SPEECH_LINES.demon.felhunter },
+    felguard      = { "demon_felguard", SPEECH_LINES.demon.felguard },
+    inferno       = { "demon_inferno", SPEECH_LINES.demon.inferno },
+    doomguard     = { "demon_doomguard", SPEECH_LINES.demon.doomguard },
+}
+
+function FLM:GetSlashChannel()
+    if LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+        return "/i"
+    elseif IsInRaid() then
+        return "/ra"
+    elseif IsInGroup() then
+        return "/p"
+    end
+    return "/s"
+end
+
+function FLM:GetSpeechCategoryForKey(speechKey)
+    return SPEECH_KEY_CATEGORY[speechKey]
+end
+
+function FLM:BuildSpeechMacro(actionName, speechKey, isItem)
+    if not actionName or actionName == "" or not self.db or not self.db.speech or not self.db.speech.enabled then
+        return nil
+    end
+    local category = SPEECH_KEY_CATEGORY[speechKey]
+    if not category or not self.db.speech[category] then
+        return nil
+    end
+    local defInfo = SPEECH_KEY_DEFAULTS[speechKey]
+    if not defInfo then
+        return nil
+    end
+
+    local line = GetSpeechLine(speechKey, defInfo[1], defInfo[2])
+    if not line or line == "" then
+        return nil
+    end
+
+    line = line:gsub("[\r\n]+", " ")
+    if speechKey == "summon" then
+        line = line:gsub("<target>", "%%t")
+    elseif speechKey == "soulstone" then
+        if IsInGroup() or IsInRaid() then
+            line = line:gsub("<target>", "%%t")
+        else
+            local selfName = UnitName("player") or "myself"
+            line = line:gsub("<target>", function() return selfName end)
+        end
+    end
+
+    local castCmd = isItem and "/use" or "/cast"
+    return string.format("%s %s\n%s %s", castCmd, actionName, self:GetSlashChannel(), line)
+end
+
+function FLM:MarkHubSpeechSent(category)
+    if category then
+        lastHubSpeech[category] = GetTime()
+    end
+end
+
+local function WasRecentHubSpeech(category)
+    local t = category and lastHubSpeech[category]
+    return t and ((GetTime() - t) < 1.5) or false
+end
+
 local function SayLine(text)
     if not text or text == "" then
         return
@@ -149,31 +237,9 @@ local function SayLine(text)
     local channel = GetGroupChannel()
     if CanSendChat(channel) then
         pcall(FLM.SendChatMessage, text, channel)
-    elseif channel == "SAY" and not IsChatLocked() then
-        local token = { text = text, time = GetTime() }
-        pendingHardwareSay = token
-        C_Timer.After(0, function()
-            if pendingHardwareSay == token then
-                pendingHardwareSay = nil
-                FLM:Print(token.text)
-            end
-        end)
     else
         FLM:Print(text)
     end
-end
-
-function FLM:FlushHardwareSpeech()
-    if not pendingHardwareSay then
-        return
-    end
-    local text = pendingHardwareSay.text
-    pendingHardwareSay = nil
-    if IsChatLocked() then
-        self:Print(text)
-        return
-    end
-    pcall(FLM.SendChatMessage, text, "SAY")
 end
 
 local function ResolveTargetName(castGUID, explicitTarget)
@@ -203,32 +269,42 @@ function FLM:InitSpeech()
         local spellName = FLM.GetSpellInfo(spellID)
 
         if FLM.db.speech.summon and (SUMMON_SPELL_IDS[spellID] or (spellName and SUMMON_SPELL_NAMES[spellName])) then
-            local line = GetSpeechLine("summon", "summon", SPEECH_LINES.summon)
-            local who = ResolveTargetName(castGUID, target)
-            if line then
-                SayLine((line:gsub("<target>", who)))
+            if not WasRecentHubSpeech("summon") then
+                local line = GetSpeechLine("summon", "summon", SPEECH_LINES.summon)
+                local who = ResolveTargetName(castGUID, target)
+                if line then
+                    SayLine((line:gsub("<target>", who)))
+                end
             end
         elseif FLM.db.speech.ritualOfSouls and (SOULWELL_SPELL_IDS[spellID] or (spellName and SOULWELL_SPELL_NAMES[spellName])) then
-            local line = GetSpeechLine("ritualOfSouls", "ritualOfSouls", SPEECH_LINES.ritualOfSouls)
-            if line then
-                SayLine(line)
+            if not WasRecentHubSpeech("ritualOfSouls") then
+                local line = GetSpeechLine("ritualOfSouls", "ritualOfSouls", SPEECH_LINES.ritualOfSouls)
+                if line then
+                    SayLine(line)
+                end
             end
         elseif FLM.db.speech.demon and DEMON_SPELL_MAP[spellID] then
-            local demonKey = DEMON_SPELL_MAP[spellID]
-            local line = GetSpeechLine(demonKey, "demon_" .. demonKey, SPEECH_LINES.demon[demonKey])
-            if line then
-                SayLine(line)
+            if not WasRecentHubSpeech("demon") then
+                local demonKey = DEMON_SPELL_MAP[spellID]
+                local line = GetSpeechLine(demonKey, "demon_" .. demonKey, SPEECH_LINES.demon[demonKey])
+                if line then
+                    SayLine(line)
+                end
             end
         elseif FLM.db.speech.mount and MOUNT_SPELL_IDS[spellID] then
-            local line = GetSpeechLine("mount", "mount", SPEECH_LINES.mount)
-            if line then
-                SayLine(line)
+            if not WasRecentHubSpeech("mount") then
+                local line = GetSpeechLine("mount", "mount", SPEECH_LINES.mount)
+                if line then
+                    SayLine(line)
+                end
             end
         elseif FLM.db.speech.soulstone and (SOULSTONE_SPELL_IDS[spellID] or (spellName and SOULSTONE_SPELL_NAMES[spellName])) then
             local who = ResolveTargetName(castGUID, target)
-            local line = GetSpeechLine("soulstone", "soulstone", SPEECH_LINES.soulstone)
-            if line then
-                SayLine((line:gsub("<target>", who)))
+            if not WasRecentHubSpeech("soulstone") then
+                local line = GetSpeechLine("soulstone", "soulstone", SPEECH_LINES.soulstone)
+                if line then
+                    SayLine((line:gsub("<target>", who)))
+                end
             end
             if FLM.db.speech.whisperSoulstone and who ~= "a party member" and who ~= UnitName("player") and CanSendChat("WHISPER") then
                 local whisperMsg = GetCustomLine("soulstoneWhisper") or "Soulstone placed on you!"
@@ -348,6 +424,9 @@ local function SaveSpeechInputs()
         end
     end
     RefreshSpeechInputs()
+    if FLM.UpdateHub then
+        FLM:UpdateHub()
+    end
     FLM:Print(string.format("Saved custom speech settings (%d custom line(s) active).", savedCount))
 end
 
@@ -466,6 +545,9 @@ local function BuildSpeechDialog()
             FLM.db.speech.customLines = {}
         end
         RefreshSpeechInputs()
+        if FLM.UpdateHub then
+            FLM:UpdateHub()
+        end
         FLM:Print("Reset all speech lines to built-in defaults.")
     end)
 

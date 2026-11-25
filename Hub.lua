@@ -99,11 +99,6 @@ local function CreateSecureHubButton(name, parent, x, y, iconPath)
     btn:SetPoint("CENTER", parent, "CENTER", x, y)
     btn:RegisterForClicks("AnyUp", "AnyDown")
     StyleSquareButton(btn, iconPath)
-    btn:HookScript("PostClick", function()
-        if FLM.FlushHardwareSpeech then
-            FLM:FlushHardwareSpeech()
-        end
-    end)
     return btn
 end
 
@@ -178,6 +173,30 @@ local function WireDrawerToggle(toggleBtn, drawerIndex)
     ]])
 end
 
+local SPELL_KEY_TO_SPEECH = {
+    summon_imp          = "imp",
+    summon_voidwalker   = "voidwalker",
+    summon_succubus     = "succubus",
+    summon_felhunter    = "felhunter",
+    summon_felguard     = "felguard",
+    inferno             = "inferno",
+    ritual_of_doom      = "doomguard",
+    ritual_of_summoning = "summon",
+}
+
+local function ApplyDrawerButtonAction(btn, spellName, speechKey)
+    local macroStr = speechKey and FLM.BuildSpeechMacro and FLM:BuildSpeechMacro(spellName, speechKey)
+    if macroStr then
+        btn:SetAttribute("type", "macro")
+        btn:SetAttribute("macrotext", macroStr)
+        btn:SetAttribute("spell", nil)
+    else
+        btn:SetAttribute("type", "spell")
+        btn:SetAttribute("spell", spellName)
+        btn:SetAttribute("macrotext", nil)
+    end
+end
+
 local function BuildSpellDrawerButtons(drawerKey, spellKeys, cols, growDirX, growDirY)
     local drawer = drawers[drawerKey]
     if not drawer or InCombatLockdown() then
@@ -221,9 +240,14 @@ local function BuildSpellDrawerButtons(drawerKey, spellKeys, cols, growDirX, gro
             if secureHeader then
                 secureHeader:WrapScript(btn, "OnClick", DRAWER_CHILD_PRECLICK, DRAWER_CHILD_POSTCLICK)
             end
-            btn:HookScript("PostClick", function()
-                if FLM.FlushHardwareSpeech then
-                    FLM:FlushHardwareSpeech()
+            btn:HookScript("PreClick", function(self)
+                if self.speechCategory and FLM.MarkHubSpeechSent then
+                    FLM:MarkHubSpeechSent(self.speechCategory)
+                end
+            end)
+            btn:HookScript("PostClick", function(self)
+                if self.speechKey and self.spellName and not InCombatLockdown() then
+                    ApplyDrawerButtonAction(self, self.spellName, self.speechKey)
                 end
             end)
             btn.ShowCustomTooltip = function(self)
@@ -252,11 +276,13 @@ local function BuildSpellDrawerButtons(drawerKey, spellKeys, cols, growDirX, gro
             btn:SetPoint("TOPLEFT", drawer, "TOPLEFT", x, -y)
         end
 
+        local speechKey = SPELL_KEY_TO_SPEECH[entry.key]
         btn.spellID = entry.info.id
         btn.spellName = entry.info.name
+        btn.speechKey = speechKey
+        btn.speechCategory = speechKey and FLM.GetSpeechCategoryForKey and FLM:GetSpeechCategoryForKey(speechKey) or nil
         btn.icon:SetTexture(entry.info.icon)
-        btn:SetAttribute("type", "spell")
-        btn:SetAttribute("spell", entry.info.name)
+        ApplyDrawerButtonAction(btn, entry.info.name, speechKey)
         btn:Show()
     end
 end
@@ -280,6 +306,7 @@ local function UpdateStoneButtons()
         hsBtn:SetAttribute("spell2", nil)
         hsBtn:SetAttribute("shift-type1", nil)
         hsBtn:SetAttribute("shift-spell1", nil)
+        hsBtn:SetAttribute("shift-macrotext1", nil)
 
         if hsItem then
             hsBtn:SetAttribute("type1", "item")
@@ -298,8 +325,14 @@ local function UpdateStoneButtons()
             hsBtn:SetAttribute("spell2", createHS.name)
         end
         if soulwell then
-            hsBtn:SetAttribute("shift-type1", "spell")
-            hsBtn:SetAttribute("shift-spell1", soulwell.name)
+            local soulwellMacro = FLM.BuildSpeechMacro and FLM:BuildSpeechMacro(soulwell.name, "ritualOfSouls")
+            if soulwellMacro then
+                hsBtn:SetAttribute("shift-type1", "macro")
+                hsBtn:SetAttribute("shift-macrotext1", soulwellMacro)
+            else
+                hsBtn:SetAttribute("shift-type1", "spell")
+                hsBtn:SetAttribute("shift-spell1", soulwell.name)
+            end
         end
         hsBtn.cachedItem = hsItem
         hsBtn.createSpell = createHS
@@ -314,12 +347,20 @@ local function UpdateStoneButtons()
 
         ssBtn:SetAttribute("type1", nil)
         ssBtn:SetAttribute("item1", nil)
+        ssBtn:SetAttribute("macrotext1", nil)
         ssBtn:SetAttribute("type2", nil)
         ssBtn:SetAttribute("spell2", nil)
 
         if ssItem then
-            ssBtn:SetAttribute("type1", "item")
-            ssBtn:SetAttribute("item1", ssItem.name or ("item:" .. ssItem.itemID))
+            local itemAction = ssItem.name or ("item:" .. ssItem.itemID)
+            local ssMacro = FLM.BuildSpeechMacro and FLM:BuildSpeechMacro(itemAction, "soulstone", true)
+            if ssMacro then
+                ssBtn:SetAttribute("type1", "macro")
+                ssBtn:SetAttribute("macrotext1", ssMacro)
+            else
+                ssBtn:SetAttribute("type1", "item")
+                ssBtn:SetAttribute("item1", itemAction)
+            end
             ssBtn.icon:SetTexture(ssItem.icon or "Interface\\Icons\\INV_Misc_Orb_04")
             ssBtn.icon:SetDesaturated(false)
             ssBtn.countText:SetText("1")
@@ -342,8 +383,16 @@ local function UpdateStoneButtons()
     if mountBtn then
         local mountSpell = FLM:GetBestMountSpell()
         if mountSpell then
-            mountBtn:SetAttribute("type", "spell")
-            mountBtn:SetAttribute("spell", mountSpell.name)
+            local mountMacro = FLM.BuildSpeechMacro and FLM:BuildSpeechMacro(mountSpell.name, "mount")
+            if mountMacro then
+                mountBtn:SetAttribute("type", "macro")
+                mountBtn:SetAttribute("macrotext", mountMacro)
+                mountBtn:SetAttribute("spell", nil)
+            else
+                mountBtn:SetAttribute("type", "spell")
+                mountBtn:SetAttribute("spell", mountSpell.name)
+                mountBtn:SetAttribute("macrotext", nil)
+            end
             mountBtn.icon:SetTexture(mountSpell.icon)
             mountBtn.icon:SetDesaturated(false)
             mountBtn.spellName = mountSpell.name
@@ -351,6 +400,7 @@ local function UpdateStoneButtons()
         else
             mountBtn:SetAttribute("type", nil)
             mountBtn:SetAttribute("spell", nil)
+            mountBtn:SetAttribute("macrotext", nil)
             mountBtn.icon:SetTexture("Interface\\Icons\\Ability_Mount_Dreadsteed")
             mountBtn.icon:SetDesaturated(true)
             mountBtn.spellName = nil
@@ -655,6 +705,11 @@ function FLM:InitHub()
 
     -- Top Row (2 buttons): Healthstone (-17, +68) & Soulstone (+17, +68)
     buttons.healthstone = CreateSecureHubButton("FLM_HealthstoneBtn", hubFrame, -pairOff, topY, "Interface\\Icons\\INV_Stone_04")
+    buttons.healthstone:HookScript("PreClick", function(_, mouseBtn)
+        if mouseBtn == "LeftButton" and IsShiftKeyDown() and FLM.MarkHubSpeechSent then
+            FLM:MarkHubSpeechSent("ritualOfSouls")
+        end
+    end)
     buttons.healthstone.ShowCustomTooltip = function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:SetText("Healthstone", 0.2, 1.0, 0.2)
@@ -673,6 +728,11 @@ function FLM:InitHub()
     end
 
     buttons.soulstone = CreateSecureHubButton("FLM_SoulstoneBtn", hubFrame, pairOff, topY, "Interface\\Icons\\INV_Misc_Orb_04")
+    buttons.soulstone:HookScript("PreClick", function(_, mouseBtn)
+        if mouseBtn == "LeftButton" and not IsShiftKeyDown() and not IsControlKeyDown() and not IsAltKeyDown() and FLM.MarkHubSpeechSent then
+            FLM:MarkHubSpeechSent("soulstone")
+        end
+    end)
     buttons.soulstone.ShowCustomTooltip = function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:SetText("Soulstone", 0.78, 0.52, 1.0)
@@ -722,6 +782,11 @@ function FLM:InitHub()
     end
 
     buttons.mount = CreateSecureHubButton("FLM_MountBtn", hubFrame, -sideX, 0, "Interface\\Icons\\Ability_Mount_Dreadsteed")
+    buttons.mount:HookScript("PreClick", function(_, mouseBtn)
+        if mouseBtn == "LeftButton" and FLM.MarkHubSpeechSent then
+            FLM:MarkHubSpeechSent("mount")
+        end
+    end)
     buttons.mount.ShowCustomTooltip = function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         if self.spellName then
@@ -844,6 +909,9 @@ function FLM:InitHub()
 
     self:RegisterEvent("BAG_UPDATE_COOLDOWN", UpdateCooldowns)
     self:RegisterEvent("SPELL_UPDATE_COOLDOWN", UpdateCooldowns)
+    self:RegisterEvent("GROUP_ROSTER_UPDATE", function()
+        FLM:UpdateHub()
+    end)
     self:RegisterEvent("CVAR_UPDATE", function(_, cvar)
         if cvar == "ActionButtonUseKeyDown" then
             SyncDrawerAttributes()

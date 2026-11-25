@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.1.1] - 2026-11-25
+
+### Fixed
+- Switched speech-enabled hub and drawer buttons (Demon summons, Ritual of Summoning, Ritual of Souls, Soulstone, and Mount) to native secure macro text (`/cast` or `/use` + `/s`, `/p`, `/ra`, or `/i`) so announcements reliably appear in `/say` when solo outdoors and in party/raid chat when grouped without falling back to local `[FLM]` text.
+- Automatically refresh hub speech macros on `GROUP_ROSTER_UPDATE`, speech option toggles, and custom speech saves/resets, with deduplication against `UNIT_SPELLCAST_SENT`.
+
 ## [v1.1.0] - 2026-11-25
 
 ### Added

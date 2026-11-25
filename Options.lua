@@ -280,15 +280,15 @@ local function BuildOptionsWindow()
 
     CreateCheckbox(optionsFrame, "Enable Speech Announcements", rx, -78,
         function() return FLM.db.speech.enabled end,
-        function(v) FLM.db.speech.enabled = v end)
+        function(v) FLM.db.speech.enabled = v; if FLM.UpdateHub then FLM:UpdateHub() end end)
 
     CreateCheckbox(optionsFrame, "Ritual of Summoning (<target>)", rx + 14, -102,
         function() return FLM.db.speech.summon end,
-        function(v) FLM.db.speech.summon = v end)
+        function(v) FLM.db.speech.summon = v; if FLM.UpdateHub then FLM:UpdateHub() end end)
 
     CreateCheckbox(optionsFrame, "Soulstone (<target>)", rx + 14, -126,
         function() return FLM.db.speech.soulstone end,
-        function(v) FLM.db.speech.soulstone = v end)
+        function(v) FLM.db.speech.soulstone = v; if FLM.UpdateHub then FLM:UpdateHub() end end)
 
     CreateCheckbox(optionsFrame, "Whisper Soulstone Target", rx + 14, -150,
         function() return FLM.db.speech.whisperSoulstone end,
@@ -296,15 +296,15 @@ local function BuildOptionsWindow()
 
     CreateCheckbox(optionsFrame, "Ritual of Souls (Soulwell)", rx + 14, -174,
         function() return FLM.db.speech.ritualOfSouls end,
-        function(v) FLM.db.speech.ritualOfSouls = v end)
+        function(v) FLM.db.speech.ritualOfSouls = v; if FLM.UpdateHub then FLM:UpdateHub() end end)
 
     CreateCheckbox(optionsFrame, "Demon Summoning", rx + 14, -198,
         function() return FLM.db.speech.demon end,
-        function(v) FLM.db.speech.demon = v end)
+        function(v) FLM.db.speech.demon = v; if FLM.UpdateHub then FLM:UpdateHub() end end)
 
     CreateCheckbox(optionsFrame, "Mount Summoning", rx + 14, -222,
         function() return FLM.db.speech.mount end,
-        function(v) FLM.db.speech.mount = v end)
+        function(v) FLM.db.speech.mount = v; if FLM.UpdateHub then FLM:UpdateHub() end end)
 
     CreateActionButton(optionsFrame, "Customize Speech...", rx, -250, 125, function()
         FLM:ToggleSpeechDialog()
