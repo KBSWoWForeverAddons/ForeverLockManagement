@@ -1,0 +1,15 @@
+## Interface: 16001, 11508, 20506
+## Title: Forever Lock Management
+## Notes: Square Warlock hub, Soul Shard bag manager, speech announcements, and combat warning icons.
+## Author: Custom
+## Version: 1.0.0
+## IconTexture: Interface\Icons\INV_Misc_Gem_Amethyst_02
+## SavedVariablesPerCharacter: ForeverLockManagementDB
+
+Core.lua
+Spells.lua
+Shards.lua
+Hub.lua
+Speech.lua
+Warnings.lua
+Options.lua
